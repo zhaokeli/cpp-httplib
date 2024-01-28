@@ -2968,7 +2968,7 @@ TEST_F(ServerTest, GetStreamedWithRangeSuffix2) {
   EXPECT_EQ(StatusCode::RangeNotSatisfiable_416, res->status);
   EXPECT_EQ("0", res->get_header_value("Content-Length"));
   EXPECT_EQ(false, res->has_header("Content-Range"));
-  EXPECT_EQ(0, res->body.size());
+  EXPECT_EQ(0U, res->body.size());
 }
 
 TEST_F(ServerTest, GetStreamedWithRangeError) {
@@ -2979,7 +2979,7 @@ TEST_F(ServerTest, GetStreamedWithRangeError) {
   EXPECT_EQ(StatusCode::RangeNotSatisfiable_416, res->status);
   EXPECT_EQ("0", res->get_header_value("Content-Length"));
   EXPECT_EQ(false, res->has_header("Content-Range"));
-  EXPECT_EQ(0, res->body.size());
+  EXPECT_EQ(0U, res->body.size());
 }
 
 TEST_F(ServerTest, GetRangeWithMaxLongLength) {
@@ -2988,7 +2988,7 @@ TEST_F(ServerTest, GetRangeWithMaxLongLength) {
   EXPECT_EQ(StatusCode::RangeNotSatisfiable_416, res->status);
   EXPECT_EQ("0", res->get_header_value("Content-Length"));
   EXPECT_EQ(false, res->has_header("Content-Range"));
-  EXPECT_EQ(0, res->body.size());
+  EXPECT_EQ(0U, res->body.size());
 }
 
 TEST_F(ServerTest, GetStreamedWithRangeMultipart) {
@@ -2999,6 +2999,41 @@ TEST_F(ServerTest, GetStreamedWithRangeMultipart) {
   EXPECT_EQ("267", res->get_header_value("Content-Length"));
   EXPECT_EQ(false, res->has_header("Content-Range"));
   EXPECT_EQ(267U, res->body.size());
+}
+
+TEST_F(ServerTest, GetStreamedWithTooManyRanges) {
+  Ranges ranges;
+  for (size_t i = 0; i < CPPHTTPLIB_RANGE_MAX_COUNT + 1; i++) {
+    ranges.emplace_back(0, -1);
+  }
+
+  auto res =
+      cli_.Get("/streamed-with-range?error", {{make_range_header(ranges)}});
+  ASSERT_TRUE(res);
+  EXPECT_EQ(StatusCode::RangeNotSatisfiable_416, res->status);
+  EXPECT_EQ("0", res->get_header_value("Content-Length"));
+  EXPECT_EQ(false, res->has_header("Content-Range"));
+  EXPECT_EQ(0U, res->body.size());
+}
+
+TEST_F(ServerTest, GetStreamedWithNonAscendingRanges) {
+  auto res = cli_.Get("/streamed-with-range?error",
+                      {{make_range_header({{0, -1}, {0, -1}})}});
+  ASSERT_TRUE(res);
+  EXPECT_EQ(StatusCode::RangeNotSatisfiable_416, res->status);
+  EXPECT_EQ("0", res->get_header_value("Content-Length"));
+  EXPECT_EQ(false, res->has_header("Content-Range"));
+  EXPECT_EQ(0U, res->body.size());
+}
+
+TEST_F(ServerTest, GetStreamedWithRangesMoreThanTwoOverwrapping) {
+  auto res = cli_.Get("/streamed-with-range?error",
+                      {{make_range_header({{0, 1}, {1, 2}, {2, 3}, {3, 4}})}});
+  ASSERT_TRUE(res);
+  EXPECT_EQ(StatusCode::RangeNotSatisfiable_416, res->status);
+  EXPECT_EQ("0", res->get_header_value("Content-Length"));
+  EXPECT_EQ(false, res->has_header("Content-Range"));
+  EXPECT_EQ(0U, res->body.size());
 }
 
 TEST_F(ServerTest, GetStreamedEndless) {
